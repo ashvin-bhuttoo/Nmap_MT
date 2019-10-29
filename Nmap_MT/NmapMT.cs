@@ -10,12 +10,18 @@ using System.Windows.Forms;
 using System.IO;
 using System.Xml;
 using System.Xml.Serialization;
+using System.Diagnostics;
+using System.Threading;
+using Newtonsoft.Json;
 
 namespace Nmap_MT
 {
     public partial class NmapMT : Form
     {
         private ScanList g_ScanList = null;
+        private bool g_stopped = false;
+        private List<Task> g_scannners = null;
+        private int g_scanlist_count;
 
         public NmapMT()
         {
@@ -27,6 +33,7 @@ namespace Nmap_MT
             groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = btnStartStop.Text != "Start";
             if (btnStartStop.Text == "Start")
             {
+                g_stopped = false;
                 btnStartStop.Text = "Stop";
                 btnStartStop.ForeColor = Color.Red;
                 if (g_ScanList != null && MessageBox.Show(this,"Do you want to resume last scan?", "Restore Last Scan", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.No)
@@ -46,9 +53,7 @@ namespace Nmap_MT
                         return;
                     }
                     tstStatus.Text = "Generating ScanList.xml";
-
-                    List<ScanListHost> generatedHosts = new List<ScanListHost>();
-
+                    
                     int hostCount = 0;
                     for (int a = from1; a <= to1; a++)
                     {
@@ -64,6 +69,10 @@ namespace Nmap_MT
                         }
                     }
 
+                    XmlDocument doc = new XmlDocument();                    
+                    doc.LoadXml("<ScanList></ScanList>");
+                    XmlNode scanListNode = doc.SelectSingleNode("/ScanList");
+
                     int currCount = 0;
                     for (int a = from1; a <= to1; a++)
                     {
@@ -75,11 +84,15 @@ namespace Nmap_MT
                                 {
                                     currCount++;
                                     tstProgress.Value = ((currCount * 100) / hostCount);
-                                    generatedHosts.Add(new ScanListHost
-                                    {
-                                        IP = $"{a}.{b}.{c}.{d}",
-                                        ScanResult = string.Empty
-                                    });
+
+                                    XmlElement Host = doc.CreateElement("Host");
+                                    XmlElement IP = doc.CreateElement("IP");
+                                    IP.InnerText = $"{a}.{b}.{c}.{d}";
+                                    Host.AppendChild(IP);
+                                    XmlElement ScanResult = doc.CreateElement("ScanResult");
+                                    Host.AppendChild(ScanResult);
+                                    scanListNode.AppendChild(Host);
+
                                     if (currCount % 255 == 0)
                                         Application.DoEvents();
                                     if (btnStartStop.Text == "Start")
@@ -91,28 +104,128 @@ namespace Nmap_MT
                                 }
                             }
                         }
-                    }
-
-                    g_ScanList = new ScanList();
-                    g_ScanList.Host = generatedHosts.ToArray();
-
+                    }               
+                    
                     tstStatus.Text = "Saving ScanList.xml..";
-                    SerializeObject(g_ScanList, "ScanList.xml");
+                    doc.AppendChild(scanListNode);
+                    doc.Save("ScanList.xml");
                     tstStatus.Text = "Saving ScanList.xml..done..";
+
+                    tstStatus.Text = "Loading ScanList.xml..";
+                    LoadScanlist();
+                    tstStatus.Text = "ScanList.xml Loaded..";
                 }
 
-                if (g_ScanList.Host.Count() > 0)
-                {
-                    int scanned = g_ScanList.Host.Count(h => h.ScanResult != string.Empty);
-                    tstStatus.Text = $"{scanned} of {g_ScanList.Host.Count()} Hosts Scanned!";
+                g_scanlist_count = g_ScanList.Host.Count();
+                List<ScanListHost> unscanned = g_ScanList.Host.Where(h => h.ScanResult == string.Empty).ToList();
+                if (g_scanlist_count > 0)
+                {                   
+                    tstStatus.Text = $"{g_scanlist_count - unscanned.Count()} of {g_scanlist_count} Hosts Scanned!";
                 }
-
                 tstProgress.Value = 0;
+
+                g_scannners = new List<Task>();
+                int num_scans_per_thread = (int)(g_scanlist_count / numThreads.Value);
+                if(num_scans_per_thread < 1)
+                {
+                    num_scans_per_thread = 1;
+                }
+
+                while(unscanned.Count > 0)
+                {
+                    var tmp = DeepCopy(unscanned.Take(num_scans_per_thread)).ToList();
+                    Task t = Task.Run(() => ScanRange(tmp));
+                    g_scannners.Add(t);
+                    unscanned = unscanned.Skip(num_scans_per_thread).ToList();
+                }
+
+                int total = g_ScanList.Host.Count();
+                while (g_scannners.Count > 0)
+                {
+                    if (g_stopped)
+                        break;
+                    g_scannners.RemoveAll(t => t.Status != TaskStatus.Running);
+                    Application.DoEvents();
+                    Thread.Sleep(50);
+                    tstStatus.Text = $"{total - g_scanlist_count} of {total} Hosts Scanned!";
+                }
             }
             else
             {
+                g_stopped = true;
+                btnStartStop.Enabled = false;
+
+                while(g_scannners.Count > 0)
+                {
+                    g_scannners.RemoveAll(t => t.Status != TaskStatus.Running);
+                    Application.DoEvents();
+                    Thread.Sleep(500);
+                    tstStatus.Text = $"{g_scannners.Count} Stopping..";
+                }
+
+                tstStatus.Text = $"Scan Stopped..";
                 btnStartStop.Text = "Start";
                 btnStartStop.ForeColor = Color.Green;
+                btnStartStop.Enabled = true;
+            }
+        }
+
+        private void ScanRange(List<ScanListHost> unscanned)
+        {
+            string nmapArgs = txtNmapArgs.Text.Trim().Length > 0 ? txtNmapArgs.Text.Trim() : "-sn";
+            foreach(var host in unscanned)
+            {
+                if (g_stopped) 
+                    break;
+
+                var proc = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "nmap.exe",
+                        Arguments = $"{nmapArgs} {host.IP}",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    }
+                };
+
+                proc.Start();
+
+                string _output = string.Empty;
+                while (!proc.StandardOutput.EndOfStream)
+                {
+                    _output += proc.StandardOutput.ReadLine() + Environment.NewLine;
+                }
+                g_scanlist_count--;
+
+                if (g_ScanList == null)
+                    break;
+
+                g_ScanList.Host.FirstOrDefault(h => h.IP == host.IP).ScanResult = _output;
+
+                //if(!_output.Contains(""))
+                string[] row = { host.IP, _output };
+                var listViewItem = new ListViewItem(row);
+                AddLvItem(listViewItem);
+            }
+        }
+
+        delegate void SetLviCallback(ListViewItem lvi);
+
+        private void AddLvItem(ListViewItem lvi)
+        {
+            // InvokeRequired required compares the thread ID of the
+            // calling thread to the thread ID of the creating thread.
+            // If these threads are different, it returns true.
+            if (this.lvScans.InvokeRequired)
+            {
+                SetLviCallback d = new SetLviCallback(AddLvItem);
+                this.Invoke(d, new object[] { lvi });
+            }
+            else
+            {
+                this.lvScans.Items.Add(lvi);
             }
         }
 
@@ -126,7 +239,7 @@ namespace Nmap_MT
             int t1_val, t2_val;
             if(int.TryParse(t1.Text, out t1_val) && int.TryParse(t2.Text, out t2_val))
             {
-                if (t1_val < 0 || t2_val <0 || t1_val > 255 || t2_val > 255)
+                if (t1_val < 0 || t2_val < 0 || t1_val > 255 || t2_val > 255)
                     return false;
 
                 if (t2_val < t1_val)
@@ -149,10 +262,7 @@ namespace Nmap_MT
             {
                 if (MessageBox.Show("Do you want to restore last scan parameters?", "Restore Last Scan?", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                 {
-                    XmlSerializer inSrlz = new XmlSerializer(typeof(ScanList));
-                    StreamReader inRead = new StreamReader("ScanList.xml");
-                    g_ScanList = ((ScanList)inSrlz.Deserialize(inRead));
-                    inRead.Close();
+                    LoadScanlist();
 
                     ScanListHost start = g_ScanList.Host.First();
                     ScanListHost end = g_ScanList.Host.Last();
@@ -161,6 +271,14 @@ namespace Nmap_MT
                     get_octets(end.IP, ref txtTo1, ref txtTo2, ref txtTo3, ref txtTo4);
                 }
             }
+        }
+
+        private void LoadScanlist()
+        {
+            XmlSerializer inSrlz = new XmlSerializer(typeof(ScanList));
+            StreamReader inRead = new StreamReader("ScanList.xml");
+            g_ScanList = ((ScanList)inSrlz.Deserialize(inRead));
+            inRead.Close();
         }
 
         private bool get_octets(string IP, ref TextBox oct1, ref TextBox oct2, ref TextBox oct3, ref TextBox oct4)
@@ -203,6 +321,11 @@ namespace Nmap_MT
         private void ip_change(object sender, KeyEventArgs e)
         {
             g_ScanList = null;
+        }
+
+        private static T DeepCopy<T>(T lst)
+        {
+            return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(lst));
         }
     }
 }

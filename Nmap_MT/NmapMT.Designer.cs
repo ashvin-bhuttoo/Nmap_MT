@@ -39,7 +39,7 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
-            this.textBox1 = new System.Windows.Forms.TextBox();
+            this.txtNmapArgs = new System.Windows.Forms.TextBox();
             this.lvScans = new System.Windows.Forms.ListView();
             this.IP = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.Results = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -173,7 +173,7 @@
             // 
             // groupBox3
             // 
-            this.groupBox3.Controls.Add(this.textBox1);
+            this.groupBox3.Controls.Add(this.txtNmapArgs);
             this.groupBox3.Location = new System.Drawing.Point(451, 5);
             this.groupBox3.Name = "groupBox3";
             this.groupBox3.Size = new System.Drawing.Size(328, 42);
@@ -181,15 +181,18 @@
             this.groupBox3.TabStop = false;
             this.groupBox3.Text = "Nmap CmdLine Options Override";
             // 
-            // textBox1
+            // txtNmapArgs
             // 
-            this.textBox1.Location = new System.Drawing.Point(6, 16);
-            this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(304, 20);
-            this.textBox1.TabIndex = 0;
+            this.txtNmapArgs.Location = new System.Drawing.Point(6, 16);
+            this.txtNmapArgs.Name = "txtNmapArgs";
+            this.txtNmapArgs.Size = new System.Drawing.Size(304, 20);
+            this.txtNmapArgs.TabIndex = 0;
             // 
             // lvScans
             // 
+            this.lvScans.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.lvScans.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.IP,
             this.Results});
@@ -199,14 +202,27 @@
             this.lvScans.Size = new System.Drawing.Size(776, 326);
             this.lvScans.TabIndex = 4;
             this.lvScans.UseCompatibleStateImageBehavior = false;
+            this.lvScans.View = System.Windows.Forms.View.Details;
+            // 
+            // IP
+            // 
+            this.IP.Text = "IP";
+            this.IP.Width = 100;
+            // 
+            // Results
+            // 
+            this.Results.Text = "Results";
+            this.Results.Width = 600;
             // 
             // btnStartStop
             // 
+            this.btnStartStop.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.btnStartStop.Font = new System.Drawing.Font("Segoe UI Historic", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnStartStop.ForeColor = System.Drawing.Color.Green;
             this.btnStartStop.Location = new System.Drawing.Point(219, 69);
             this.btnStartStop.Name = "btnStartStop";
-            this.btnStartStop.Size = new System.Drawing.Size(560, 34);
+            this.btnStartStop.Size = new System.Drawing.Size(569, 34);
             this.btnStartStop.TabIndex = 5;
             this.btnStartStop.Text = "Start";
             this.btnStartStop.UseVisualStyleBackColor = true;
@@ -234,7 +250,7 @@
             this.numThreads.Size = new System.Drawing.Size(91, 20);
             this.numThreads.TabIndex = 0;
             this.numThreads.Value = new decimal(new int[] {
-            1,
+            5,
             0,
             0,
             0});
@@ -273,6 +289,7 @@
             this.Controls.Add(this.groupBox3);
             this.Controls.Add(this.groupBox2);
             this.Controls.Add(this.groupBox1);
+            this.MinimumSize = new System.Drawing.Size(816, 532);
             this.Name = "NmapMT";
             this.Text = "NmapMT";
             this.Load += new System.EventHandler(this.NmapMT_Load);
@@ -304,7 +321,7 @@
         private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.GroupBox groupBox2;
         private System.Windows.Forms.GroupBox groupBox3;
-        private System.Windows.Forms.TextBox textBox1;
+        private System.Windows.Forms.TextBox txtNmapArgs;
         private System.Windows.Forms.ListView lvScans;
         private System.Windows.Forms.ColumnHeader IP;
         private System.Windows.Forms.ColumnHeader Results;
