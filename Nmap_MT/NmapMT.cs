@@ -92,7 +92,7 @@ namespace Nmap_MT
                         unscanned = unscanned.Skip((int)hostsPerThread.Value).ToList();
                     }                   
 
-                    g_scannner_tasks.RemoveAll(t => t.Status != TaskStatus.Running);
+                    g_scannner_tasks.RemoveAll(t => t.Status == TaskStatus.RanToCompletion);
                     Application.DoEvents();
                     Thread.Sleep(50);
                     tstStatus.Text = $"{g_total - g_remaining_hosts_count} of {g_total} Hosts Scanned!";
@@ -120,7 +120,7 @@ namespace Nmap_MT
 
                 while(g_scannner_tasks != null && g_scannner_tasks.Count > 0)
                 {
-                    g_scannner_tasks.RemoveAll(t => t.Status != TaskStatus.Running);
+                    g_scannner_tasks.RemoveAll(t => t.Status == TaskStatus.RanToCompletion);
                     Application.DoEvents();
                     Thread.Sleep(500);
                     tstStatus.Text = $"{g_scannner_tasks.Count} Stopping.. {g_total - g_remaining_hosts_count} of {g_total} Hosts Scanned!";
