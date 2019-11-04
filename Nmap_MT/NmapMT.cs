@@ -161,8 +161,7 @@ namespace Nmap_MT
                 {
                     _output += proc.StandardOutput.ReadLine() + Environment.NewLine;
                 }
-                g_scanlist_count-= (int)tmpScan.Count;
-
+               
                 if (g_ScanList == null)
                     break;
 
@@ -182,6 +181,8 @@ namespace Nmap_MT
                     var listViewItem = new ListViewItem(row);
                     AddLvItem(listViewItem);
                 }
+
+                g_scanlist_count -= (int)tmpScan.Count;
             }
         }
 
