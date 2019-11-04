@@ -22,8 +22,8 @@ namespace Nmap_MT
     {
         private ScanList g_ScanList = null;
         private bool g_stopped = false;
-        private List<Task> g_scannners = null;
-        private int g_scanlist_count, g_total;
+        private List<Task> g_scannner_tasks = null;
+        private int g_remaining_hosts_count, g_total;
 
         public NmapMT()
         {
@@ -69,39 +69,39 @@ namespace Nmap_MT
                     g_ScanList.Host = scanlistHosts.ToArray();
                 }
 
-                g_scanlist_count = g_ScanList.Host.Count();
+                g_remaining_hosts_count = g_ScanList.Host.Count();
                 List<ScanListHost> unscanned = g_ScanList.Host.Where(h => h.ScanResult == string.Empty).ToList();
-                if (g_scanlist_count > 0)
+                if (g_remaining_hosts_count > 0)
                 {                   
-                    tstStatus.Text = $"{g_scanlist_count - unscanned.Count()} of {g_scanlist_count} Hosts Scanned!";
+                    tstStatus.Text = $"{g_remaining_hosts_count - unscanned.Count()} of {g_remaining_hosts_count} Hosts Scanned!";
                 }
                 tstProgress.Value = 0;
-                g_scannners = new List<Task>();
+                g_scannner_tasks = new List<Task>();
 
                 g_total = g_ScanList.Host.Count();
                 do
                 {
-                    while (unscanned.Count > 0 && g_scannners.Count < numThreads.Value)
+                    while (unscanned.Count > 0 && g_scannner_tasks.Count < numThreads.Value)
                     {
                         if (g_stopped)
                             return;
 
                         var tmp = DeepCopy(unscanned.Take((int)hostsPerThread.Value)).ToList();
                         Task t = Task.Run(() => ScanRange(tmp));
-                        g_scannners.Add(t);
+                        g_scannner_tasks.Add(t);
                         unscanned = unscanned.Skip((int)hostsPerThread.Value).ToList();
                     }                   
 
-                    g_scannners.RemoveAll(t => t.Status != TaskStatus.Running);
+                    g_scannner_tasks.RemoveAll(t => t.Status != TaskStatus.Running);
                     Application.DoEvents();
                     Thread.Sleep(50);
-                    tstStatus.Text = $"{g_total - g_scanlist_count} of {g_total} Hosts Scanned!";
-                    tstProgress.Value = (((g_total - g_scanlist_count) * 100) / g_total);
+                    tstStatus.Text = $"{g_total - g_remaining_hosts_count} of {g_total} Hosts Scanned!";
+                    tstProgress.Value = (((g_total - g_remaining_hosts_count) * 100) / g_total);
 
                     if (g_stopped)
                         return;
 
-                } while (g_scannners.Count > 0 || g_scanlist_count > 0 || (unscanned.Count > 0 && !g_stopped));
+                } while (g_scannner_tasks.Count > 0 || g_remaining_hosts_count > 0 || (unscanned.Count > 0 && !g_stopped));
 
                 if (g_stopped)
                     return;
@@ -118,13 +118,13 @@ namespace Nmap_MT
                 g_stopped = true;
                 btnStartStop.Enabled = false;
 
-                while(g_scannners != null && g_scannners.Count > 0)
+                while(g_scannner_tasks != null && g_scannner_tasks.Count > 0)
                 {
-                    g_scannners.RemoveAll(t => t.Status != TaskStatus.Running);
+                    g_scannner_tasks.RemoveAll(t => t.Status != TaskStatus.Running);
                     Application.DoEvents();
                     Thread.Sleep(500);
-                    tstStatus.Text = $"{g_scannners.Count} Stopping.. {g_total - g_scanlist_count} of {g_total} Hosts Scanned!";
-                    tstProgress.Value = (((g_total - g_scanlist_count) * 100) / g_total);
+                    tstStatus.Text = $"{g_scannner_tasks.Count} Stopping.. {g_total - g_remaining_hosts_count} of {g_total} Hosts Scanned!";
+                    tstProgress.Value = (((g_total - g_remaining_hosts_count) * 100) / g_total);
                 }
 
                 tstStatus.Text = "Saving ScanList.xml";
@@ -172,7 +172,7 @@ namespace Nmap_MT
                     _output += proc.StandardOutput.ReadLine() + Environment.NewLine;
                 }
 
-                g_scanlist_count -= (int)tmpScan.Count;
+                g_remaining_hosts_count -= (int)tmpScan.Count;
 
                 if (g_ScanList == null)
                     break;
