@@ -38,11 +38,14 @@ namespace Nmap_MT
                 g_stopped = false;
                 btnStartStop.Text = "Stop";
                 btnStartStop.ForeColor = Color.Red;
-                if (g_ScanList != null && MessageBox.Show(this,"Do you want to resume last scan?", "Restore Last Scan", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.No)
-                {
-                    lvScans.Items.Clear();
-                    g_ScanList = null;
-                }
+                //if (g_ScanList != null && MessageBox.Show(this,"Do you want to resume last scan?", "Restore Last Scan", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.No)
+                //{
+                //    lvScans.Items.Clear();
+                //    g_ScanList = null;
+                //}
+
+                lvScans.Items.Clear();
+                g_ScanList = null;
 
                 if (g_ScanList == null)
                 {
@@ -82,6 +85,7 @@ namespace Nmap_MT
                     {
                         if (g_stopped)
                             return;
+
                         var tmp = DeepCopy(unscanned.Take((int)hostsPerThread.Value)).ToList();
                         Task t = Task.Run(() => ScanRange(tmp));
                         g_scannners.Add(t);
@@ -93,8 +97,14 @@ namespace Nmap_MT
                     Thread.Sleep(50);
                     tstStatus.Text = $"{g_total - g_scanlist_count} of {g_total} Hosts Scanned!";
                     tstProgress.Value = (((g_total - g_scanlist_count) * 100) / g_total);
-                } while (g_scannners.Count > 0 || g_scanlist_count > 0 || (unscanned.Count > 0 && !g_stopped));
 
+                    if (g_stopped)
+                        return;
+
+                } while (g_scanlist_count > 0 || (g_scannners.Count > 0 && unscanned.Count > 0 && !g_stopped));
+
+                if (g_stopped)
+                    return;
 
                 tstStatus.Text = "Saving ScanList.xml";
                 SaveScanlist();
@@ -259,19 +269,21 @@ namespace Nmap_MT
 
         private void NmapMT_Load(object sender, EventArgs e)
         {
-            if (File.Exists("ScanList.xml"))
-            {
-                if (MessageBox.Show("Do you want to restore last scan parameters?", "Restore Last Scan?", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-                {
-                    LoadScanlist();
+            //if (File.Exists("ScanList.xml"))
+            //{
+            //    if (MessageBox.Show("Do you want to restore last scan parameters?", "Restore Last Scan?", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+            //    {
+            //        LoadScanlist();
 
-                    ScanListHost start = g_ScanList.Host.First();
-                    ScanListHost end = g_ScanList.Host.Last();
+            //        ScanListHost start = g_ScanList.Host.First();
+            //        ScanListHost end = g_ScanList.Host.Last();
 
-                    get_octets(start.IP, ref txtFrom1, ref txtFrom2, ref txtFrom3, ref txtFrom4);
-                    get_octets(end.IP, ref txtTo1, ref txtTo2, ref txtTo3, ref txtTo4);
-                }
-            }
+            //        get_octets(start.IP, ref txtFrom1, ref txtFrom2, ref txtFrom3, ref txtFrom4);
+            //        get_octets(end.IP, ref txtTo1, ref txtTo2, ref txtTo3, ref txtTo4);
+
+            //        g_ScanList = null;
+            //    }
+            //}
         }
 
         private void LoadScanlist()
