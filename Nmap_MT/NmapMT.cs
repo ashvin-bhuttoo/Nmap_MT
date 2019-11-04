@@ -30,7 +30,7 @@ namespace Nmap_MT
 
         private void btnStartStop_Click(object sender, EventArgs e)
         {
-            groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = btnStartStop.Text != "Start";
+            //groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text != "Start";
             if (btnStartStop.Text == "Start")
             {
                 g_stopped = false;
@@ -38,6 +38,7 @@ namespace Nmap_MT
                 btnStartStop.ForeColor = Color.Red;
                 if (g_ScanList != null && MessageBox.Show(this,"Do you want to resume last scan?", "Restore Last Scan", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.No)
                 {
+                    lvScans.Items.Clear();
                     g_ScanList = null;
                 }
 
@@ -49,7 +50,7 @@ namespace Nmap_MT
                         MessageBox.Show("Please check TO & FROM Addresses!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         btnStartStop.Text = "Start";
                         btnStartStop.ForeColor = Color.Green;
-                        groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = true;
+                        //groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = true;
                         return;
                     }
                     tstStatus.Text = "Generating ScanList.xml";
@@ -148,7 +149,16 @@ namespace Nmap_MT
                     Application.DoEvents();
                     Thread.Sleep(50);
                     tstStatus.Text = $"{total - g_scanlist_count} of {total} Hosts Scanned!";
+                    tstProgress.Value = (((total - g_scanlist_count) * 100) / total) ;
                 }
+
+                tstStatus.Text = "Saving ScanList.xml";
+                SaveScanlist();
+                tstStatus.Text = "ScanList.xml saved!";
+
+                btnStartStop.Text = "Start";
+                btnStartStop.ForeColor = Color.Green;
+                //groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text != "Start";
             }
             else
             {
@@ -163,19 +173,30 @@ namespace Nmap_MT
                     tstStatus.Text = $"{g_scannners.Count} Stopping..";
                 }
 
+                tstStatus.Text = "Saving ScanList.xml";
+                SaveScanlist();
+                tstStatus.Text = "ScanList.xml saved!";
+
                 tstStatus.Text = $"Scan Stopped..";
                 btnStartStop.Text = "Start";
                 btnStartStop.ForeColor = Color.Green;
                 btnStartStop.Enabled = true;
+                //groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text != "Start";
             }
         }
 
         private void ScanRange(List<ScanListHost> unscanned)
         {
             string nmapArgs = txtNmapArgs.Text.Trim().Length > 0 ? txtNmapArgs.Text.Trim() : "-sn";
-            foreach(var host in unscanned)
+
+            List<ScanListHost> tmpScan = new List<ScanListHost>();
+
+            while ((tmpScan = unscanned.Take((int)hostsPerThread.Value).ToList()).Count > 0)
             {
-                if (g_stopped) 
+                unscanned = unscanned.Skip((int)hostsPerThread.Value).ToList();
+                string ipRange = get_nmap_ip_range(tmpScan.First().IP, tmpScan.Last().IP);
+
+                if (g_stopped)
                     break;
 
                 var proc = new Process
@@ -183,7 +204,7 @@ namespace Nmap_MT
                     StartInfo = new ProcessStartInfo
                     {
                         FileName = "nmap.exe",
-                        Arguments = $"{nmapArgs} {host.IP}",
+                        Arguments = $"{nmapArgs} {ipRange}",
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         CreateNoWindow = true
@@ -197,18 +218,52 @@ namespace Nmap_MT
                 {
                     _output += proc.StandardOutput.ReadLine() + Environment.NewLine;
                 }
-                g_scanlist_count--;
+                g_scanlist_count-=tmpScan.Count;
 
                 if (g_ScanList == null)
                     break;
 
-                g_ScanList.Host.FirstOrDefault(h => h.IP == host.IP).ScanResult = _output;
+                bool showOffline = cbShowOffline.Checked;
+                string[] tokenizedScanResult = _output.Split(new[] { '\n'}, StringSplitOptions.RemoveEmptyEntries);
+                foreach(var host in tmpScan)
+                {
+                    string scanResult = extractResult(tokenizedScanResult, host.IP);
+                    g_ScanList.Host.FirstOrDefault(h => h.IP == host.IP).ScanResult = scanResult;
 
-                //if(!_output.Contains(""))
-                string[] row = { host.IP, _output };
-                var listViewItem = new ListViewItem(row);
-                AddLvItem(listViewItem);
+                    if (scanResult == "Offline" && !showOffline)
+                        continue;
+
+                    string[] row = { host.IP, scanResult };
+                    var listViewItem = new ListViewItem(row);
+                    AddLvItem(listViewItem);
+                }
             }
+        }
+
+        private static string extractResult(string [] scanResult, string hostIP)
+        {
+            if (!scanResult.Any(l => l.Contains(hostIP)))
+                return "Offline";
+
+            var _output = string.Empty;
+            bool startAppendingResult = false;
+            foreach(var line in scanResult)
+            {
+                if (startAppendingResult)
+                {
+                    if (line.Contains("Nmap scan report for"))
+                        break;
+
+                    _output += line;
+                }
+                if (line.Contains(hostIP))
+                {
+                    _output += line;
+                    startAppendingResult = true;
+                }               
+            }
+            
+            return _output;
         }
 
         delegate void SetLviCallback(ListViewItem lvi);
@@ -279,6 +334,39 @@ namespace Nmap_MT
             StreamReader inRead = new StreamReader("ScanList.xml");
             g_ScanList = ((ScanList)inSrlz.Deserialize(inRead));
             inRead.Close();
+        }
+
+        private void SaveScanlist()
+        {
+            XmlSerializer outSrlz = new XmlSerializer(typeof(ScanList));
+            StreamWriter outWriter = new StreamWriter("ScanList.xml");
+            if(!cbShowOffline.Checked)
+            {
+                g_ScanList.Host = g_ScanList.Host.Where(h => h.ScanResult != "Offline").ToArray();
+            }            
+            outSrlz.Serialize(outWriter, g_ScanList);
+            outWriter.Close();
+        }
+
+        private static string get_nmap_ip_range(string startIP, string endIP)
+        {
+            ScanFormatted start = new ScanFormatted();
+            ScanFormatted end = new ScanFormatted();
+
+            start.Parse(startIP, "%d.%d.%d.%d");
+            end.Parse(endIP, "%d.%d.%d.%d");
+
+            if(start.Results.Count == 4 && end.Results.Count == 4)
+            {
+                string range = string.Empty;
+                   
+                for(int k=0;k<4;k++)
+                    range += (start.Results[k] == end.Results[k] ? start.Results[k].ToString() : $"{start.Results[k].ToString()}-{end.Results[k].ToString()}") + (k<3 ? "." : string.Empty);
+
+                return range;
+            }
+
+            return string.Empty;
         }
 
         private bool get_octets(string IP, ref TextBox oct1, ref TextBox oct2, ref TextBox oct3, ref TextBox oct4)
