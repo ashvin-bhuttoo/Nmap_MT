@@ -93,7 +93,7 @@ namespace Nmap_MT
                     Thread.Sleep(50);
                     tstStatus.Text = $"{g_total - g_scanlist_count} of {g_total} Hosts Scanned!";
                     tstProgress.Value = (((g_total - g_scanlist_count) * 100) / g_total);
-                } while (g_scanlist_count > 0 || (unscanned.Count > 0 && !g_stopped));
+                } while (g_scannners.Count > 0 || g_scanlist_count > 0 || (unscanned.Count > 0 && !g_stopped));
 
 
                 tstStatus.Text = "Saving ScanList.xml";
@@ -161,7 +161,9 @@ namespace Nmap_MT
                 {
                     _output += proc.StandardOutput.ReadLine() + Environment.NewLine;
                 }
-               
+
+                g_scanlist_count -= (int)tmpScan.Count;
+
                 if (g_ScanList == null)
                     break;
 
@@ -180,9 +182,7 @@ namespace Nmap_MT
                     string[] row = { host.IP, scanResult };
                     var listViewItem = new ListViewItem(row);
                     AddLvItem(listViewItem);
-                }
-
-                g_scanlist_count -= (int)tmpScan.Count;
+                }                
             }
         }
 
