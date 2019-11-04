@@ -53,7 +53,7 @@ namespace Nmap_MT
                         //groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = true;
                         return;
                     }
-                    tstStatus.Text = "Generating ScanList.xml";
+                    tstStatus.Text = "Generating memory ScanList";
                     
                     int hostCount = 0;
                     for (int a = from1; a <= to1; a++)
@@ -70,10 +70,8 @@ namespace Nmap_MT
                         }
                     }
 
-                    XmlDocument doc = new XmlDocument();                    
-                    doc.LoadXml("<ScanList></ScanList>");
-                    XmlNode scanListNode = doc.SelectSingleNode("/ScanList");
-
+                    g_ScanList = new ScanList();
+                    List<ScanListHost> scanlistHosts = new List<ScanListHost>();
                     int currCount = 0;
                     for (int a = from1; a <= to1; a++)
                     {
@@ -86,13 +84,7 @@ namespace Nmap_MT
                                     currCount++;
                                     tstProgress.Value = ((currCount * 100) / hostCount);
 
-                                    XmlElement Host = doc.CreateElement("Host");
-                                    XmlElement IP = doc.CreateElement("IP");
-                                    IP.InnerText = $"{a}.{b}.{c}.{d}";
-                                    Host.AppendChild(IP);
-                                    XmlElement ScanResult = doc.CreateElement("ScanResult");
-                                    Host.AppendChild(ScanResult);
-                                    scanListNode.AppendChild(Host);
+                                    scanlistHosts.Add(new ScanListHost { IP = $"{a}.{b}.{c}.{d}", ScanResult = string.Empty });
 
                                     if (currCount % 255 == 0)
                                         Application.DoEvents();
@@ -105,16 +97,9 @@ namespace Nmap_MT
                                 }
                             }
                         }
-                    }               
-                    
-                    tstStatus.Text = "Saving ScanList.xml..";
-                    doc.AppendChild(scanListNode);
-                    doc.Save("ScanList.xml");
-                    tstStatus.Text = "Saving ScanList.xml..done..";
+                    }
 
-                    tstStatus.Text = "Loading ScanList.xml..";
-                    LoadScanlist();
-                    tstStatus.Text = "ScanList.xml Loaded..";
+                    g_ScanList.Host = scanlistHosts.ToArray();
                 }
 
                 g_scanlist_count = g_ScanList.Host.Count();
@@ -124,33 +109,28 @@ namespace Nmap_MT
                     tstStatus.Text = $"{g_scanlist_count - unscanned.Count()} of {g_scanlist_count} Hosts Scanned!";
                 }
                 tstProgress.Value = 0;
-
                 g_scannners = new List<Task>();
-                int num_scans_per_thread = (int)(g_scanlist_count / numThreads.Value);
-                if(num_scans_per_thread < 1)
-                {
-                    num_scans_per_thread = 1;
-                }
-
-                while(unscanned.Count > 0)
-                {
-                    var tmp = DeepCopy(unscanned.Take(num_scans_per_thread)).ToList();
-                    Task t = Task.Run(() => ScanRange(tmp));
-                    g_scannners.Add(t);
-                    unscanned = unscanned.Skip(num_scans_per_thread).ToList();
-                }
 
                 int total = g_ScanList.Host.Count();
-                while (g_scannners.Count > 0)
+                do
                 {
-                    if (g_stopped)
-                        break;
+                    while (unscanned.Count > 0 && g_scannners.Count < numThreads.Value)
+                    {
+                        if (g_stopped)
+                            break;
+                        var tmp = DeepCopy(unscanned.Take((int)hostsPerThread.Value)).ToList();
+                        Task t = Task.Run(() => ScanRange(tmp));
+                        g_scannners.Add(t);
+                        unscanned = unscanned.Skip((int)hostsPerThread.Value).ToList();
+                    }                   
+
                     g_scannners.RemoveAll(t => t.Status != TaskStatus.Running);
                     Application.DoEvents();
                     Thread.Sleep(50);
                     tstStatus.Text = $"{total - g_scanlist_count} of {total} Hosts Scanned!";
-                    tstProgress.Value = (((total - g_scanlist_count) * 100) / total) ;
-                }
+                    tstProgress.Value = (((total - g_scanlist_count) * 100) / total);
+                } while (g_scanlist_count > 0 || (unscanned.Count > 0 && !g_stopped));
+
 
                 tstStatus.Text = "Saving ScanList.xml";
                 SaveScanlist();
@@ -218,7 +198,7 @@ namespace Nmap_MT
                 {
                     _output += proc.StandardOutput.ReadLine() + Environment.NewLine;
                 }
-                g_scanlist_count-=tmpScan.Count;
+                g_scanlist_count-= (int)hostsPerThread.Value;
 
                 if (g_ScanList == null)
                     break;
@@ -338,14 +318,11 @@ namespace Nmap_MT
 
         private void SaveScanlist()
         {
-            XmlSerializer outSrlz = new XmlSerializer(typeof(ScanList));
-            StreamWriter outWriter = new StreamWriter("ScanList.xml");
             if(!cbShowOffline.Checked)
             {
-                g_ScanList.Host = g_ScanList.Host.Where(h => h.ScanResult != "Offline").ToArray();
-            }            
-            outSrlz.Serialize(outWriter, g_ScanList);
-            outWriter.Close();
+                g_ScanList.Host = g_ScanList.Host.Where(h => (h.ScanResult != "Offline" && h.ScanResult != string.Empty)).ToArray();
+            }
+            SerializeObject(g_ScanList, "ScanList.xml");
         }
 
         private static string get_nmap_ip_range(string startIP, string endIP)
