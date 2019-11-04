@@ -81,7 +81,7 @@
             this.txtFrom2.Size = new System.Drawing.Size(34, 20);
             this.txtFrom2.TabIndex = 1;
             this.txtFrom2.Tag = "From Octet 2";
-            this.txtFrom2.Text = "16";
+            this.txtFrom2.Text = "31";
             this.txtFrom2.KeyUp += new System.Windows.Forms.KeyEventHandler(this.ip_change);
             // 
             // txtFrom3
@@ -136,7 +136,7 @@
             this.txtTo3.Size = new System.Drawing.Size(34, 20);
             this.txtTo3.TabIndex = 6;
             this.txtTo3.Tag = "To Octet 3";
-            this.txtTo3.Text = "255";
+            this.txtTo3.Text = "0";
             this.txtTo3.KeyUp += new System.Windows.Forms.KeyEventHandler(this.ip_change);
             // 
             // txtTo4
@@ -255,7 +255,7 @@
             this.numThreads.Size = new System.Drawing.Size(91, 20);
             this.numThreads.TabIndex = 9;
             this.numThreads.Value = new decimal(new int[] {
-            20,
+            5,
             0,
             0,
             0});
@@ -310,7 +310,7 @@
             this.hostsPerThread.Size = new System.Drawing.Size(91, 20);
             this.hostsPerThread.TabIndex = 10;
             this.hostsPerThread.Value = new decimal(new int[] {
-            50,
+            20,
             0,
             0,
             0});

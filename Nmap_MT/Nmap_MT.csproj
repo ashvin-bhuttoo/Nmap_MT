@@ -49,6 +49,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IPAddressTools.cs" />
     <Compile Include="NmapMT.cs">
       <SubType>Form</SubType>
     </Compile>

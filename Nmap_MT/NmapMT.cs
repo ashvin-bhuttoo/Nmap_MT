@@ -13,6 +13,8 @@ using System.Xml.Serialization;
 using System.Diagnostics;
 using System.Threading;
 using Newtonsoft.Json;
+using IPAddressTools;
+using System.Net;
 
 namespace Nmap_MT
 {
@@ -21,7 +23,7 @@ namespace Nmap_MT
         private ScanList g_ScanList = null;
         private bool g_stopped = false;
         private List<Task> g_scannners = null;
-        private int g_scanlist_count;
+        private int g_scanlist_count, g_total;
 
         public NmapMT()
         {
@@ -50,54 +52,16 @@ namespace Nmap_MT
                         MessageBox.Show("Please check TO & FROM Addresses!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         btnStartStop.Text = "Start";
                         btnStartStop.ForeColor = Color.Green;
-                        //groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = true;
                         return;
                     }
                     tstStatus.Text = "Generating memory ScanList";
-                    
-                    int hostCount = 0;
-                    for (int a = from1; a <= to1; a++)
-                    {
-                        for (int b = from2; b <= to2; b++)
-                        {
-                            for (int c = from3; c <= to3; c++)
-                            {
-                                for (int d = from4; d <= to4; d++)
-                                {
-                                    hostCount++;
-                                }
-                            }
-                        }
-                    }
 
                     g_ScanList = new ScanList();
                     List<ScanListHost> scanlistHosts = new List<ScanListHost>();
-                    int currCount = 0;
-                    for (int a = from1; a <= to1; a++)
-                    {
-                        for (int b = from2; b <= to2; b++)
-                        {
-                            for (int c = from3; c <= to3; c++)
-                            {
-                                for (int d = from4; d <= to4; d++)
-                                {
-                                    currCount++;
-                                    tstProgress.Value = ((currCount * 100) / hostCount);
 
-                                    scanlistHosts.Add(new ScanListHost { IP = $"{a}.{b}.{c}.{d}", ScanResult = string.Empty });
-
-                                    if (currCount % 255 == 0)
-                                        Application.DoEvents();
-                                    if (btnStartStop.Text == "Start")
-                                    {
-                                        tstStatus.Text = "Idle..";
-                                        tstProgress.Value = 0;
-                                        return;
-                                    }                                        
-                                }
-                            }
-                        }
-                    }
+                    IEnumerable<string> ipRanges = new RangeFinder().GetIPRange(IPAddress.Parse($"{from1}.{from2}.{from3}.{from4}"), IPAddress.Parse($"{to1}.{to2}.{to3}.{to4}"));
+                    foreach (var ip in ipRanges)
+                        scanlistHosts.Add(new ScanListHost { IP = ip, ScanResult = string.Empty });
 
                     g_ScanList.Host = scanlistHosts.ToArray();
                 }
@@ -111,13 +75,13 @@ namespace Nmap_MT
                 tstProgress.Value = 0;
                 g_scannners = new List<Task>();
 
-                int total = g_ScanList.Host.Count();
+                g_total = g_ScanList.Host.Count();
                 do
                 {
                     while (unscanned.Count > 0 && g_scannners.Count < numThreads.Value)
                     {
                         if (g_stopped)
-                            break;
+                            return;
                         var tmp = DeepCopy(unscanned.Take((int)hostsPerThread.Value)).ToList();
                         Task t = Task.Run(() => ScanRange(tmp));
                         g_scannners.Add(t);
@@ -127,8 +91,8 @@ namespace Nmap_MT
                     g_scannners.RemoveAll(t => t.Status != TaskStatus.Running);
                     Application.DoEvents();
                     Thread.Sleep(50);
-                    tstStatus.Text = $"{total - g_scanlist_count} of {total} Hosts Scanned!";
-                    tstProgress.Value = (((total - g_scanlist_count) * 100) / total);
+                    tstStatus.Text = $"{g_total - g_scanlist_count} of {g_total} Hosts Scanned!";
+                    tstProgress.Value = (((g_total - g_scanlist_count) * 100) / g_total);
                 } while (g_scanlist_count > 0 || (unscanned.Count > 0 && !g_stopped));
 
 
@@ -138,19 +102,19 @@ namespace Nmap_MT
 
                 btnStartStop.Text = "Start";
                 btnStartStop.ForeColor = Color.Green;
-                //groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text != "Start";
             }
             else
             {
                 g_stopped = true;
                 btnStartStop.Enabled = false;
 
-                while(g_scannners.Count > 0)
+                while(g_scannners != null && g_scannners.Count > 0)
                 {
                     g_scannners.RemoveAll(t => t.Status != TaskStatus.Running);
                     Application.DoEvents();
                     Thread.Sleep(500);
-                    tstStatus.Text = $"{g_scannners.Count} Stopping..";
+                    tstStatus.Text = $"{g_scannners.Count} Stopping.. {g_total - g_scanlist_count} of {g_total} Hosts Scanned!";
+                    tstProgress.Value = (((g_total - g_scanlist_count) * 100) / g_total);
                 }
 
                 tstStatus.Text = "Saving ScanList.xml";
@@ -161,7 +125,6 @@ namespace Nmap_MT
                 btnStartStop.Text = "Start";
                 btnStartStop.ForeColor = Color.Green;
                 btnStartStop.Enabled = true;
-                //groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text != "Start";
             }
         }
 
@@ -198,7 +161,7 @@ namespace Nmap_MT
                 {
                     _output += proc.StandardOutput.ReadLine() + Environment.NewLine;
                 }
-                g_scanlist_count-= (int)hostsPerThread.Value;
+                g_scanlist_count-= (int)tmpScan.Count;
 
                 if (g_ScanList == null)
                     break;
@@ -208,6 +171,8 @@ namespace Nmap_MT
                 foreach(var host in tmpScan)
                 {
                     string scanResult = extractResult(tokenizedScanResult, host.IP);
+                    if (g_stopped)
+                        break;
                     g_ScanList.Host.FirstOrDefault(h => h.IP == host.IP).ScanResult = scanResult;
 
                     if (scanResult == "Offline" && !showOffline)
@@ -318,6 +283,8 @@ namespace Nmap_MT
 
         private void SaveScanlist()
         {
+            if (g_ScanList.Host == null)
+                return;
             if(!cbShowOffline.Checked)
             {
                 g_ScanList.Host = g_ScanList.Host.Where(h => (h.ScanResult != "Offline" && h.ScanResult != string.Empty)).ToArray();
@@ -327,23 +294,13 @@ namespace Nmap_MT
 
         private static string get_nmap_ip_range(string startIP, string endIP)
         {
-            ScanFormatted start = new ScanFormatted();
-            ScanFormatted end = new ScanFormatted();
+            string range = string.Empty;
 
-            start.Parse(startIP, "%d.%d.%d.%d");
-            end.Parse(endIP, "%d.%d.%d.%d");
+            IEnumerable<string> ipRanges = new RangeFinder().GetIPRange(IPAddress.Parse(startIP), IPAddress.Parse(endIP));
+            foreach (var ip in ipRanges)
+                range = $"{range}{ip} ";
 
-            if(start.Results.Count == 4 && end.Results.Count == 4)
-            {
-                string range = string.Empty;
-                   
-                for(int k=0;k<4;k++)
-                    range += (start.Results[k] == end.Results[k] ? start.Results[k].ToString() : $"{start.Results[k].ToString()}-{end.Results[k].ToString()}") + (k<3 ? "." : string.Empty);
-
-                return range;
-            }
-
-            return string.Empty;
+            return range;
         }
 
         private bool get_octets(string IP, ref TextBox oct1, ref TextBox oct2, ref TextBox oct3, ref TextBox oct4)
