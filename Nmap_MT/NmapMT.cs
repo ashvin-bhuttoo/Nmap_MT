@@ -101,7 +101,7 @@ namespace Nmap_MT
                     if (g_stopped)
                         return;
 
-                } while (g_scanlist_count > 0 || (g_scannners.Count > 0 && unscanned.Count > 0 && !g_stopped));
+                } while (g_scannners.Count > 0 || g_scanlist_count > 0 || (unscanned.Count > 0 && !g_stopped));
 
                 if (g_stopped)
                     return;
