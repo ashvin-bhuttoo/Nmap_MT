@@ -137,18 +137,13 @@ namespace Nmap_MT
         }
 
         private void ScanRange(List<ScanListHost> unscanned)
-        {
-            string nmapArgs = txtNmapArgs.Text.Trim().Length > 0 ? txtNmapArgs.Text.Trim() : "-sn";
+        {           
+            string _output = string.Empty;
 
-            List<ScanListHost> tmpScan = new List<ScanListHost>();
-
-            while ((tmpScan = unscanned.Take((int)hostsPerThread.Value).ToList()).Count > 0)
+            try
             {
-                unscanned = unscanned.Skip((int)hostsPerThread.Value).ToList();
-                string ipRange = get_nmap_ip_range(tmpScan.First().IP, tmpScan.Last().IP);
-
-                if (g_stopped)
-                    break;
+                string nmapArgs = txtNmapArgs.Text.Trim().Length > 0 ? txtNmapArgs.Text.Trim() : "-sn";
+                string ipRange = get_nmap_ip_range(unscanned.First().IP, unscanned.Last().IP);
 
                 var proc = new Process
                 {
@@ -163,34 +158,34 @@ namespace Nmap_MT
                 };
 
                 proc.Start();
-
-                string _output = string.Empty;
+                    
                 while (!proc.StandardOutput.EndOfStream)
                 {
                     _output += proc.StandardOutput.ReadLine() + Environment.NewLine;
                 }
+            }
+            catch(Exception e) {
+                Console.WriteLine($"Exception occured in scanRange {e.Message}");
+            }                
 
-                g_remaining_hosts_count -= (int)tmpScan.Count;
+            g_remaining_hosts_count -= (int)unscanned.Count;
 
-                if (g_ScanList == null)
+            bool showOffline = cbShowOffline.Checked;
+            string[] tokenizedScanResult = _output.Split(new[] { '\n'}, StringSplitOptions.RemoveEmptyEntries);
+            foreach(var host in unscanned)
+            {
+                string scanResult = extractResult(tokenizedScanResult, host.IP);
+                if (g_stopped)
                     break;
 
-                bool showOffline = cbShowOffline.Checked;
-                string[] tokenizedScanResult = _output.Split(new[] { '\n'}, StringSplitOptions.RemoveEmptyEntries);
-                foreach(var host in tmpScan)
-                {
-                    string scanResult = extractResult(tokenizedScanResult, host.IP);
-                    if (g_stopped)
-                        break;
-                    g_ScanList.Host.FirstOrDefault(h => h.IP == host.IP).ScanResult = scanResult;
+                g_ScanList.Host.FirstOrDefault(h => h.IP == host.IP).ScanResult = scanResult;
 
-                    if (scanResult == "Offline" && !showOffline)
-                        continue;
+                if (scanResult == "Offline" && !showOffline)
+                    continue;
 
-                    string[] row = { host.IP, scanResult };
-                    var listViewItem = new ListViewItem(row);
-                    AddLvItem(listViewItem);
-                }                
+                string[] row = { host.IP, scanResult };
+                var listViewItem = new ListViewItem(row);
+                AddLvItem(listViewItem);
             }
         }
 
