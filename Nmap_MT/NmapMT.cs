@@ -281,6 +281,10 @@ namespace Nmap_MT
                 g_ScanList.Host = g_ScanList.Host.Where(h => (h.ScanResult != "Offline" && h.ScanResult != string.Empty)).ToArray();
             }
             SerializeObject(g_ScanList, "ScanList.xml");
+            Process myProcess = new Process();
+            myProcess.StartInfo.FileName = "notepad.exe";
+            myProcess.StartInfo.Arguments = "ScanList.xml";
+            myProcess.Start();
         }
 
         private static string get_nmap_ip_range(string startIP, string endIP)
