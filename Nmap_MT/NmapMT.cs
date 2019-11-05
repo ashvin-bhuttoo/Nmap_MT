@@ -114,6 +114,8 @@ namespace Nmap_MT
                 g_stopped = true;
                 btnStartStop.Enabled = false;
 
+                Stopwatch stopStopw = new Stopwatch();
+                stopStopw.Start();
                 while(g_scannner_tasks != null && g_scannner_tasks.Count > 0)
                 {
                     g_scannner_tasks.RemoveAll(t => t.Status == TaskStatus.RanToCompletion);
@@ -121,7 +123,15 @@ namespace Nmap_MT
                     Thread.Sleep(500);
                     tstStatus.Text = $"{g_scannner_tasks.Count} Stopping.. {g_total - g_remaining_hosts_count} of {g_total} Hosts Scanned!";
                     tstProgress.Value = (((g_total - g_remaining_hosts_count) * 100) / g_total);
+                    if(stopStopw.Elapsed.TotalSeconds > 15)
+                    {
+                        foreach (var process in Process.GetProcessesByName("nmap"))
+                        {
+                            process.Kill();
+                        }
+                    }
                 }
+                stopStopw.Stop();
 
                 tstStatus.Text = "Saving ScanList.xml";
                 SaveScanlist();
