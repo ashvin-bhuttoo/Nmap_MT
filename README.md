@@ -1,8 +1,11 @@
 # Nmap_MT
-Nmap_MT is a multithreaded Desktop Application that allows for faster NMAP scans by distributing hosts on separate nmap threads.
-The user has complete control on how many threads that may be used in scans.
+Nmap_MT is a multithreaded Desktop Application that allows for faster NMAP scans by distributing hosts on separate parallel threads.
+The user has complete control on how many threads may be used in scans and how many addresses should be scanned in serial on one thread.
 
-The latest installer can be downloaded from here: <a href=""> v1.0.0</a> 
+This project depends on the NMAP project, and Nmap for windows should be installed before this tool can be used.
+https://nmap.org/download.html
+
+The latest installer can be downloaded from here: <a href="https://github.com/ashvin-bhuttoo/Nmap_MT/raw/master/NmapMT_setup/Release/NmapMT_setup.msi"> v1.0.0</a> 
 
 If you want to buy me a beer, here's the button for it.. :)<br/>
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/ABhuttoo?locale.x=en_US)
