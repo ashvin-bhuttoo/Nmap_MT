@@ -31,45 +31,37 @@ namespace Nmap_MT
         }
 
         private void btnStartStop_Click(object sender, EventArgs e)
-        {
-            //groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text != "Start";
+        {            
             if (btnStartStop.Text == "Start")
             {
                 g_stopped = false;
                 btnStartStop.Text = "Stop";
                 btnStartStop.ForeColor = Color.Red;
-                //if (g_ScanList != null && MessageBox.Show(this,"Do you want to resume last scan?", "Restore Last Scan", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.No)
-                //{
-                //    lvScans.Items.Clear();
-                //    g_ScanList = null;
-                //}
+                cbShowOffline.Enabled = groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text == "Start";
 
                 lvScans.Items.Clear();
                 g_ScanList = null;
 
-                if (g_ScanList == null)
+                int from1 = 0, from2 = 0, from3 = 0, from4 = 0, to1 = 0, to2 = 0, to3 = 0, to4 = 0;
+                if (!ValidateIPRange(ref txtFrom1, ref txtTo1, ref from1, ref to1) || !ValidateIPRange(ref txtFrom2, ref txtTo2, ref from2, ref to2) || !ValidateIPRange(ref txtFrom3, ref txtTo3, ref from3, ref to3) || !ValidateIPRange(ref txtFrom4, ref txtTo4, ref from4, ref to4))
                 {
-                    int from1 = 0, from2 = 0, from3 = 0, from4 = 0, to1 = 0, to2 = 0, to3 = 0, to4 = 0;
-                    if (!ValidateIPRange(ref txtFrom1, ref txtTo1, ref from1, ref to1) || !ValidateIPRange(ref txtFrom2, ref txtTo2, ref from2, ref to2) || !ValidateIPRange(ref txtFrom3, ref txtTo3, ref from3, ref to3) || !ValidateIPRange(ref txtFrom4, ref txtTo4, ref from4, ref to4))
-                    {
-                        MessageBox.Show("Please check TO & FROM Addresses!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        btnStartStop.Text = "Start";
-                        btnStartStop.ForeColor = Color.Green;
-                        return;
-                    }
-                    tstStatus.Text = "Generating memory ScanList";
-
-                    g_ScanList = new ScanList();
-                    List<ScanListHost> scanlistHosts = new List<ScanListHost>();
-
-                    IEnumerable<string> ipRanges = new RangeFinder().GetIPRange(IPAddress.Parse($"{from1}.{from2}.{from3}.{from4}"), IPAddress.Parse($"{to1}.{to2}.{to3}.{to4}"));
-                    foreach (var ip in ipRanges)
-                        scanlistHosts.Add(new ScanListHost { IP = ip, ScanResult = string.Empty });
-
-                    g_ScanList.Host = scanlistHosts.ToArray();
+                    MessageBox.Show("Please check TO & FROM Addresses!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    btnStartStop.Text = "Start";
+                    btnStartStop.ForeColor = Color.Green;
+                    cbShowOffline.Enabled = groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text == "Start"; 
+                    return;
                 }
+                tstStatus.Text = "Generating memory ScanList";
 
-                g_remaining_hosts_count = g_ScanList.Host.Count();
+                g_ScanList = new ScanList();
+                List<ScanListHost> scanlistHosts = new List<ScanListHost>();
+
+                IEnumerable<string> ipRanges = new RangeFinder().GetIPRange(IPAddress.Parse($"{from1}.{from2}.{from3}.{from4}"), IPAddress.Parse($"{to1}.{to2}.{to3}.{to4}"));
+                foreach (var ip in ipRanges)
+                    scanlistHosts.Add(new ScanListHost { IP = ip, ScanResult = string.Empty });
+
+                g_ScanList.Host = scanlistHosts.ToArray();
+
                 List<ScanListHost> unscanned = g_ScanList.Host.Where(h => h.ScanResult == string.Empty).ToList();
                 if (g_remaining_hosts_count > 0)
                 {                   
@@ -79,6 +71,7 @@ namespace Nmap_MT
                 g_scannner_tasks = new List<Task>();
 
                 g_total = g_ScanList.Host.Count();
+                g_remaining_hosts_count = g_total;
                 do
                 {
                     while (unscanned.Count > 0 && g_scannner_tasks.Count < numThreads.Value)
@@ -112,6 +105,7 @@ namespace Nmap_MT
 
                 btnStartStop.Text = "Start";
                 btnStartStop.ForeColor = Color.Green;
+                cbShowOffline.Enabled = groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text == "Start";
             }
             else
             {
@@ -135,6 +129,7 @@ namespace Nmap_MT
                 btnStartStop.Text = "Start";
                 btnStartStop.ForeColor = Color.Green;
                 btnStartStop.Enabled = true;
+                cbShowOffline.Enabled = groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text == "Start";
             }
         }
 
@@ -269,21 +264,6 @@ namespace Nmap_MT
 
         private void NmapMT_Load(object sender, EventArgs e)
         {
-            //if (File.Exists("ScanList.xml"))
-            //{
-            //    if (MessageBox.Show("Do you want to restore last scan parameters?", "Restore Last Scan?", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-            //    {
-            //        LoadScanlist();
-
-            //        ScanListHost start = g_ScanList.Host.First();
-            //        ScanListHost end = g_ScanList.Host.Last();
-
-            //        get_octets(start.IP, ref txtFrom1, ref txtFrom2, ref txtFrom3, ref txtFrom4);
-            //        get_octets(end.IP, ref txtTo1, ref txtTo2, ref txtTo3, ref txtTo4);
-
-            //        g_ScanList = null;
-            //    }
-            //}
         }
 
         private void LoadScanlist()
