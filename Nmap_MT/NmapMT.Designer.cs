@@ -274,7 +274,7 @@
             // tstProgress
             // 
             this.tstProgress.Name = "tstProgress";
-            this.tstProgress.Size = new System.Drawing.Size(500, 16);
+            this.tstProgress.Size = new System.Drawing.Size(400, 16);
             this.tstProgress.Step = 1;
             // 
             // tstStatus

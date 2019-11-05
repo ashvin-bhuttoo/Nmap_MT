@@ -24,6 +24,7 @@ namespace Nmap_MT
         private bool g_stopped = false;
         private List<Task> g_scannner_tasks = null;
         private int g_remaining_hosts_count, g_total;
+        private Stopwatch g_sw = new Stopwatch();
 
         public NmapMT()
         {
@@ -34,6 +35,7 @@ namespace Nmap_MT
         {            
             if (btnStartStop.Text == "Start")
             {
+                g_sw.Restart();
                 g_stopped = false;
                 btnStartStop.Text = "Stop";
                 btnStartStop.ForeColor = Color.Red;
@@ -74,6 +76,15 @@ namespace Nmap_MT
                 g_remaining_hosts_count = g_total;
                 do
                 {
+                    int removed = g_scannner_tasks.RemoveAll(t => t.Status == TaskStatus.RanToCompletion);
+                    Application.DoEvents();
+                    Thread.Sleep(50);
+                    tstStatus.Text = $"{g_total - g_remaining_hosts_count} of {g_total} Hosts Scanned! Time: {g_sw.Elapsed.Minutes}m{g_sw.Elapsed.Seconds}s ScanRate: {(int)((g_total - g_remaining_hosts_count) / g_sw.Elapsed.TotalSeconds)} hosts/s";
+                    tstProgress.Value = (((g_total - g_remaining_hosts_count) * 100) / g_total);
+
+                    if (g_stopped)
+                        return;
+
                     while (unscanned.Count > 0 && g_scannner_tasks.Count < numThreads.Value)
                     {
                         if (g_stopped)
@@ -83,17 +94,7 @@ namespace Nmap_MT
                         Task t = Task.Run(() => ScanRange(tmp));
                         g_scannner_tasks.Add(t);
                         unscanned = unscanned.Skip((int)hostsPerThread.Value).ToList();
-                    }                   
-
-                    g_scannner_tasks.RemoveAll(t => t.Status == TaskStatus.RanToCompletion);
-                    Application.DoEvents();
-                    Thread.Sleep(50);
-                    tstStatus.Text = $"{g_total - g_remaining_hosts_count} of {g_total} Hosts Scanned!";
-                    tstProgress.Value = (((g_total - g_remaining_hosts_count) * 100) / g_total);
-
-                    if (g_stopped)
-                        return;
-
+                    }
                 } while (g_scannner_tasks.Count > 0 || g_remaining_hosts_count > 0 || (unscanned.Count > 0 && !g_stopped));
 
                 if (g_stopped)
@@ -101,8 +102,9 @@ namespace Nmap_MT
 
                 tstStatus.Text = "Saving ScanList.xml";
                 SaveScanlist();
-                tstStatus.Text = "ScanList.xml saved!";
+                tstStatus.Text = $"ScanList.xml saved! Time: {g_sw.Elapsed.Minutes}m{g_sw.Elapsed.Seconds}s ScanRate: {(int)((g_total - g_remaining_hosts_count) / g_sw.Elapsed.TotalSeconds)} hosts/s";
 
+                g_sw.Stop();
                 btnStartStop.Text = "Start";
                 btnStartStop.ForeColor = Color.Green;
                 cbShowOffline.Enabled = groupBox1.Enabled = groupBox2.Enabled = groupBox3.Enabled = groupBox4.Enabled = groupBox5.Enabled = btnStartStop.Text == "Start";
@@ -125,7 +127,8 @@ namespace Nmap_MT
                 SaveScanlist();
                 tstStatus.Text = "ScanList.xml saved!";
 
-                tstStatus.Text = $"Scan Stopped..";
+                g_sw.Stop();
+                tstStatus.Text = $"Scan Stopped.. Time: {g_sw.Elapsed.Minutes}m{g_sw.Elapsed.Seconds}s ScanRate: {(int)((g_total - g_remaining_hosts_count) / g_sw.Elapsed.TotalSeconds)} hosts/s";
                 btnStartStop.Text = "Start";
                 btnStartStop.ForeColor = Color.Green;
                 btnStartStop.Enabled = true;
