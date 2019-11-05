@@ -1,2 +1,3 @@
 -Pn -p 139 --open --system-dns
+-Pn -n -p 139 --open (faster without dns)
 -sV
