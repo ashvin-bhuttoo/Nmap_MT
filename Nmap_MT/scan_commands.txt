@@ -1,0 +1,2 @@
+-Pn -p 139 --open --system-dns
+-sV
