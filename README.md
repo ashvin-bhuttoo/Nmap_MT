@@ -5,7 +5,7 @@ The user has complete control on how many threads may be used in scans and how m
 This project depends on the NMAP project, and Nmap for windows should be installed before this tool can be used.
 https://nmap.org/download.html
 
-The latest installer can be downloaded from here: <a href="https://github.com/ashvin-bhuttoo/Nmap_MT/raw/master/NmapMT_setup/Release/NmapMT_setup.msi"> v1.0.0</a> 
+The latest installer can be downloaded from here: <a href="https://raw.githubusercontent.com/ashvin-bhuttoo/Nmap_MT/master/NmapMT_setup/Release/NmapMT_setup.msi"> v1.0.0</a> 
 
 ![alt text](https://i.postimg.cc/JhpVmsby/2019-11-13-16-04-44-Nmap-MT-v1-0-0-0.png)
 
