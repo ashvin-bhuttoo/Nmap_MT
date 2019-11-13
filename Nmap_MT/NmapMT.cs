@@ -15,6 +15,7 @@ using System.Threading;
 using Newtonsoft.Json;
 using IPAddressTools;
 using System.Net;
+using System.Reflection;
 
 namespace Nmap_MT
 {
@@ -272,6 +273,7 @@ namespace Nmap_MT
 
         private void NmapMT_Load(object sender, EventArgs e)
         {
+            this.Text = $"{this.Text} v{Assembly.GetExecutingAssembly().GetName().Version.ToString()}";
         }
 
         private void LoadScanlist()
