@@ -273,15 +273,13 @@ namespace Nmap_MT
 
         private void NmapMT_Load(object sender, EventArgs e)
         {
-            this.Text = $"{this.Text} v{Assembly.GetExecutingAssembly().GetName().Version.ToString()}";
-        }
+            Version current = Assembly.GetExecutingAssembly().GetName().Version;
+            this.Text = $"{this.Text} v{current.ToString()}";
 
-        private void LoadScanlist()
-        {
-            XmlSerializer inSrlz = new XmlSerializer(typeof(ScanList));
-            StreamReader inRead = new StreamReader("ScanList.xml");
-            g_ScanList = ((ScanList)inSrlz.Deserialize(inRead));
-            inRead.Close();
+            Task.Run(async () =>
+            {
+                await UpdaterThreadAsync();
+            });
         }
 
         private void SaveScanlist()
@@ -308,21 +306,6 @@ namespace Nmap_MT
                 range = $"{range}{ip} ";
 
             return range;
-        }
-
-        private bool get_octets(string IP, ref TextBox oct1, ref TextBox oct2, ref TextBox oct3, ref TextBox oct4)
-        {
-            ScanFormatted sf = new ScanFormatted();
-            sf.Parse(IP, "%d.%d.%d.%d");
-            if(sf.Results.Count == 4)
-            {
-                oct1.Text = sf.Results[0].ToString();
-                oct2.Text = sf.Results[1].ToString();
-                oct3.Text = sf.Results[2].ToString();
-                oct4.Text = sf.Results[3].ToString();
-                return true;
-            }
-            return false;
         }
 
         /// <summary>
@@ -355,6 +338,67 @@ namespace Nmap_MT
         private static T DeepCopy<T>(T lst)
         {
             return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(lst));
+        }
+
+        /// <summary>
+        /// A generic update checker for github projects
+        /// The tag text is used as version field from github releases, the description text should contain an installer link pointed at raw.githubusercontent.com
+        /// </summary>
+        /// <returns></returns>
+        private static async Task UpdaterThreadAsync()
+        {
+            //Configuration Parameters
+            var github_user = "ashvin-bhuttoo";
+            var product_name = "Nmap_MT";
+            ////
+
+            Octokit.GitHubClient client = new Octokit.GitHubClient(new Octokit.ProductHeaderValue(product_name));
+            IReadOnlyList<Octokit.Release> rlsAll = await client.Repository.Release.GetAll(github_user, product_name);
+            if (rlsAll != null && rlsAll.Count > 0)
+            {
+                Octokit.Release latest = rlsAll.OrderBy(r => r.CreatedAt).Last();
+
+                Version latest_version = null;
+                if (Version.TryParse(latest.TagName, out latest_version))
+                {
+                    if (Assembly.GetExecutingAssembly().GetName().Version < latest_version)
+                    {
+                        if (MessageBox.Show($"A New Version {latest.TagName} of {product_name} has been released, do you wish to update?", "New Version Available!", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                        {
+                            string [] body = latest.Body.Split(new []{ '"' }, StringSplitOptions.RemoveEmptyEntries);
+
+                            string installerUrl = string.Empty;
+                            foreach(var tmp in body)
+                            {
+                                if(tmp.Contains("raw.githubusercontent.com"))
+                                {
+                                    installerUrl = tmp;
+                                    break;
+                                }
+                            }
+
+                            if(installerUrl != string.Empty)
+                            {
+                                if (File.Exists("update.msi"))
+                                    File.Delete("update.msi");
+
+                                using (var _client = new WebClient())
+                                {
+                                    _client.DownloadFile(installerUrl, "update.msi");
+                                }
+
+                                Process.Start("update.msi");
+                                Application.Exit();
+                                Environment.Exit(Environment.ExitCode);
+                            }
+                            else
+                            {
+                                Process.Start($"https://github.com/{github_user}/{product_name}/releases");
+                            }                            
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Security.AccessControl;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Nmap_MT
@@ -25,8 +22,8 @@ namespace Nmap_MT
                 
                 ds = di.GetAccessControl();
                 ds.AddAccessRule(fsar);
-                di.SetAccessControl(ds);
-
+                di.SetAccessControl(ds);                               
+                
                 Process.Start(Application.ExecutablePath); 
                 return; 
             }
