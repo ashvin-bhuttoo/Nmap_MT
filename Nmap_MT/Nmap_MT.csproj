@@ -66,6 +66,7 @@
       <DependentUpon>ScanList.xsd</DependentUpon>
     </Compile>
     <Compile Include="TextParser.cs" />
+    <Compile Include="Updater.cs" />
     <EmbeddedResource Include="NmapMT.resx">
       <DependentUpon>NmapMT.cs</DependentUpon>
     </EmbeddedResource>
